@@ -1,3 +1,4 @@
+const bcrypt = require('bcrypt');
 const express = require("express");
 const cors = require('cors');
 const bodyParser = require("body-parser");
@@ -20,23 +21,29 @@ db.connect((err) => {
   console.log("Conectado ao banco de dados!");
 });
 
-app.post("/salvarDados", (req, res) => {
-  const dados = req.body;
-  delete dados.confirme;
-  delete dados.termos;
+app.post("/salvarDados", async (req, res) => {
+  const { nome, email, dataNasc, telefone, genero, cep, rua, cidade, estado, numero, senha } = req.body;
 
-  console.log('Dados recebidos:', req.body);
+  delete req.body.confirme;
+  delete req.body.termos;
 
-  const sql = "INSERT INTO usuarios SET ?";
+  try {
 
-  db.query(sql, dados, (error, results) => {
-    if (error) {
-      console.error("Erro ao salvar dados:", error);
-      res.status(500).send("Erro ao salvar dados");
-    } else {
-      res.send("Dados salvos com sucesso");
-    }
-  });
+    const hashedPassword = await bcrypt.hash(senha, 10);
+
+    const sql = 'INSERT INTO usuarios (nome, email, dataNasc, telefone, genero, cep, rua, cidade, estado, numero, senha) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+    const values = [nome, email, dataNasc, telefone, genero, cep, rua, cidade, estado, numero, hashedPassword];
+
+    db.query(sql, values, (err, result) => {
+      if (err) {
+        return res.status(500).json({ error: err.message });
+      }
+      return res.status(200).json({ message: 'Dados salvos com sucesso!' });
+    });
+  } catch (error) {
+    console.error("Erro ao criptografar a senha:", error);
+    return res.status(500).json({ error: 'Erro ao salvar dados.' });
+  }
 });
 
 app.listen(3001, () => {

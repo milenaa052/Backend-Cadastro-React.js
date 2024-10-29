@@ -46,6 +46,44 @@ app.post("/salvarDados", async (req, res) => {
   }
 });
 
+const jwt = require('jsonwebtoken');
+const SECRET = 'sgHG8$an8s25Hv@';
+
+app.post("/login", async (req, res) => {
+  const { email, senha } = req.body;
+
+  const sql = 'SELECT * FROM usuarios WHERE email = ?';
+  db.query(sql, [email], async (err, results) => {
+    if (err) return res.status(500).json({ error: "Erro no servidor" });
+    if (results.length === 0) return res.status(401).json({ error: "Credenciais inválidas" });
+
+    const user = results[0];
+    const passwordMatch = await bcrypt.compare(senha, user.senha);
+    if (!passwordMatch) return res.status(401).json({ error: "Credenciais inválidas" });
+
+    const token = jwt.sign({ id: user.id }, SECRET, { expiresIn: '1h' });
+    res.json({ token });
+  });
+});
+
+app.get("/auth/verify", (req, res) => {
+  const token = req.headers['authorization'];
+  if (!token) return res.status(401).json({ error: "Token não fornecido" });
+
+  jwt.verify(token, SECRET, (err) => {
+    if (err) return res.status(401).json({ error: "Token inválido" });
+    res.json({ authenticated: true });
+  });
+});
+
+app.post('/logout', (req, res) => {
+  req.session.destroy(err => {
+    if (err) return res.status(500).send("Erro ao encerrar a sessão.");
+    res.clearCookie('sessionId');
+    res.send("Sessão encerrada com sucesso.");
+  });
+});
+
 app.listen(3001, () => {
   console.log("Servidor rodando na porta 3001");
 });
